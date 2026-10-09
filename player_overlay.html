@@ -299,12 +299,26 @@
       // ===== 그룹 팀명 (각 그룹 상단 중앙) =====
       const titles = data.titles || {};
       const commonStyle = { ...DEFAULT_STYLE, ...((slots[0] && slots[0].style) || {}) };
-      renderTitle('left',  [0,1,2,3], slots, roster, titles.left,  commonStyle, titles.autoMode);
-      renderTitle('right', [4,5,6,7], slots, roster, titles.right, commonStyle, titles.autoMode);
+      const teams = sharedData.teams || data.teams || {};
+      renderTitle('left',  [0,1,2,3], slots, roster, titles.left,  commonStyle, titles.autoMode, teams);
+      renderTitle('right', [4,5,6,7], slots, roster, titles.right, commonStyle, titles.autoMode, teams);
       renderVS(data.vs, commonStyle);
     }
 
-    function renderTitle(side, idxs, slots, roster, cfg, st, autoMode){
+    // 그룹에 실제로 들어간 선수들의 소속 팀 중 가장 많은 팀 이름 (선수 개별 배정·일부만 배정해도 팀명이 잡히도록)
+    function teamFromSlots(idxs, slots, roster, teams){
+      const cnt = {};
+      idxs.forEach(i => { const s = slots[i];
+        if (s && s.visible && s.playerId && roster[s.playerId]) {
+          const tid = roster[s.playerId].teamId;
+          if (tid && teams[tid]) cnt[tid] = (cnt[tid] || 0) + 1;
+        } });
+      let best = null, bn = 0;
+      Object.keys(cnt).forEach(t => { if (cnt[t] > bn) { bn = cnt[t]; best = t; } });
+      return best ? (teams[best].name || '').trim() : '';
+    }
+
+    function renderTitle(side, idxs, slots, roster, cfg, st, autoMode, teams){
       const el = titleEls[side];
       cfg = cfg || {};
       // 팀명 우선순위: ① 수동 입력이 항상 최우선
@@ -316,7 +330,7 @@
       const atkName = (atk && atk.visible && atk.playerId && roster[atk.playerId])
                       ? (roster[atk.playerId].name || '').trim() : '';
       const autoFromAtk = atkName ? (atkName + '팀') : '';
-      const autoFromTeam = (cfg.auto || '').trim();
+      const autoFromTeam = teamFromSlots(idxs, slots, roster, teams || {}) || (cfg.auto || '').trim();
       const autoText = (autoM === 'team') ? (autoFromTeam || autoFromAtk) : (autoFromAtk || autoFromTeam);
       const text = (cfg.text && cfg.text.trim()) || autoText;
       // 이 그룹에서 실제로 보이는 슬롯만 대상

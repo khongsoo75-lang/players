@@ -1195,6 +1195,7 @@
       });
       for(let k=0;k<4;k++){ const slot=state.slots[base+k];
         if(k<members.length){ slot.playerId=members[k]; slot.visible=true; }
+        else { slot.playerId=null; slot.visible=false; }   // 인원이 4명 미만이면 남은 슬롯의 이전 선수 제거
       }
       // 이 그룹의 자동 팀명 기록 (수동 입력이 없으면 오버레이에서 이 값이 쓰임)
       if(!state.titles) state.titles=defaultTitles();
@@ -1522,7 +1523,7 @@
           const atkIdx=(side==='left')?3:4; const atk=state.slots[atkIdx];
           const atkName=(atk&&atk.visible&&atk.playerId&&state.roster[atk.playerId])?(state.roster[atk.playerId].name||'').trim():'';
           const fromAtk = atkName?(atkName+'팀'):'';
-          const fromTeam = (cfg.auto||'').trim();
+          const fromTeam = teamFromSlots(side==='left'?[0,1,2,3]:[4,5,6,7]) || (cfg.auto||'').trim();
           if(cfg.text&&cfg.text.trim()){
             auto.textContent='표시: '+cfg.text.trim()+' (직접 입력)';
           } else if(autoM==='team'){
@@ -1850,6 +1851,15 @@
       drawPreviewVS();
     }
     // 오버레이 renderTitle()과 계산식이 완전히 동일해야 함 (stageH=1080 고정 좌표계)
+    // 오버레이 teamFromSlots()와 동일: 그룹에 들어간 선수들의 소속 팀 중 최다 팀 이름
+    function teamFromSlots(idxs){
+      const cnt={};
+      idxs.forEach(i=>{ const s=state.slots[i];
+        if(s&&s.visible&&s.playerId&&state.roster[s.playerId]){ const tid=state.roster[s.playerId].teamId;
+          if(tid&&state.teams[tid]) cnt[tid]=(cnt[tid]||0)+1; } });
+      let best=null,bn=0; Object.keys(cnt).forEach(t=>{ if(cnt[t]>bn){bn=cnt[t];best=t;} });
+      return best?(state.teams[best].name||'').trim():'';
+    }
     function drawPreviewTitle(side, idxs, livePositions){
       const t = state.titles || {}; const cfg = t[side] || {};
       // 팀명 우선순위: ① 수동 입력이 항상 최우선
@@ -1860,7 +1870,7 @@
       const atkName = (atk && atk.visible && atk.playerId && state.roster[atk.playerId])
                       ? (state.roster[atk.playerId].name||'').trim() : '';
       const autoFromAtk = atkName ? (atkName+'팀') : '';
-      const autoFromTeam = (cfg.auto||'').trim();
+      const autoFromTeam = teamFromSlots(idxs) || (cfg.auto||'').trim();
       const autoText = (autoM==='team') ? (autoFromTeam || autoFromAtk) : (autoFromAtk || autoFromTeam);
       const text = (cfg.text&&cfg.text.trim()) || autoText;
       const shown = idxs.filter(i=>{ const s=state.slots[i]; return s && s.visible && s.playerId && state.roster[s.playerId]; });
