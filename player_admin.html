@@ -850,9 +850,14 @@
 
     function save(){
       // 공유: 선수 명단·팀·디자인 프리셋 (모든 코트 공통)
-      sharedRef.set({ roster: state.roster, teams: state.teams, presets: state.presets || {} });
-      // 코트별: 배치·타이틀·레이아웃
-      playersRef.set({ slots: state.slots, titles: state.titles, layout: state.layout, vs: state.vs || defaultVS() });
+      // Firebase set()은 값 중 하나라도 undefined가 있으면 예외를 던지고 아무것도 저장하지 않음
+      // → JSON 왕복으로 undefined를 제거(배열 안은 null)한 뒤 저장
+      const clean = o => JSON.parse(JSON.stringify(o));
+      try {
+        sharedRef.set(clean({ roster: state.roster, teams: state.teams, presets: state.presets || {} }));
+        // 코트별: 배치·타이틀·레이아웃
+        playersRef.set(clean({ slots: state.slots, titles: state.titles, layout: state.layout, vs: state.vs || defaultVS() }));
+      } catch(err){ console.error('저장 실패:', err); showStatus('저장 실패: '+err.message,'error'); }
     }
     function saveDebounced(){ clearTimeout(styleTimer); styleTimer = setTimeout(save, 100); }
 
@@ -1355,7 +1360,8 @@
     // 코트 체인지: 좌우 8명을 위치까지 통째로 좌우 반전
     // 코트 체인지: 가로 정렬이면 좌우(x) 반전, 세로 정렬이면 상하(y) 반전으로 위/아래 팀 교체
     function courtChange(){
-      const old = state.slots.map(s=>({ playerId:s.playerId, visible:s.visible, style:{...s.style} }));
+      // Firebase에서 읽은 빈 슬롯은 playerId 키 자체가 없어서 undefined → 그대로 set()하면 에러로 저장 실패하므로 null로 정리
+      const old = state.slots.map(s=>({ playerId:s.playerId||null, visible:!!s.visible, style:{...s.style} }));
       const nw = [];
       for(let i=0;i<8;i++){
         // 미러 인덱스: 0<->7, 1<->6, 2<->5, 3<->4 (같은 포지션끼리 반대편으로)
